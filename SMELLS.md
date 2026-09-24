@@ -80,15 +80,32 @@ configuration instead of making the channel dependency explicit at the compositi
 
 One fix, behavior preserved, suite green, zero test edits.
 
-**Which smell you attacked.** And why that one.
+**Which smell you attacked.** Duplication over reuse in the pricing rules. I chose it
+because the two copies already describe the same business decision, so giving that decision
+one owner removes a concrete consistency risk without redesigning the rest of the service.
 
-**What changed.** Files and methods you touched, and what the code does differently now.
+**What changed.** I added `src/pricing.ts` with the pure
+`calculateReservationPrice` function and the single set of pricing constants.
+`ReservationManager.calculatePrice` and `ReportGenerator.priceOf` now delegate to that
+function. The sequence of base-price, premium, long-booking, and evening rounding is
+unchanged; only the owner of that logic changed.
 
-**What you deliberately did not touch.** Name the scope line you drew and why you drew it
-there. "I ran out of time" is not a scope line.
+**What you deliberately did not touch.** My scope line was the duplicated pricing
+calculation. I kept `ReservationManager.calculatePrice` as a public compatibility wrapper,
+and did not split the rest of the God class, simplify the notification factory, change
+validation or storage, or edit tests. Those are separate design decisions and including
+them would make it harder to tell whether this pricing refactor preserved behavior.
 
-**How you know behavior is preserved.** Point at the suite, say what it actually covers, and
-say what it would not catch.
+**How you know behavior is preserved.** All 39 tests in the unchanged suite pass. Its
+booking tests cover the ordinary hourly rate, the three-hour discount, the premium
+surcharge, and the evening discount; its reporting tests compare revenue with stored
+booking prices and check totals, averages, cancellation filtering, and per-room
+aggregation. `npm run typecheck` also passes. The suite would not catch every combination
+or rounding interaction among multiple
+modifiers or a pricing change at an untested cutoff. Because a reporting assertion uses
+stored booking prices as its expected total, it could also miss a bug that made both paths
+return the same wrong price. The identical operation order in the extracted function is
+therefore also part of the behavior-preservation argument.
 
 ---
 
