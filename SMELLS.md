@@ -115,24 +115,50 @@ One proposal for each milestone 1 smell you did not fix.
 
 ### Proposal A (not coded)
 
-**The problem.** Name it.
+**The problem.** The God class in `ReservationManager`. Booking lifecycle, room lookup,
+notification, caching, and presentation have different reasons to change but share one
+class.
 
-**The decomposition.** What are the pieces, what does each own, and where do the rules live?
+**The decomposition.** Keep a small `ReservationService` as the controller for the
+`createBooking` and `cancelBooking` use cases. A `RoomCatalog` would own room registration
+and lookup. The extracted pricing module would remain the single owner of pricing rules. A
+`ReservationFormatter` would own receipts and daily summaries, while the existing
+`NotificationChannel` would own delivery. The controller would coordinate these pieces
+through their interfaces rather than containing their rules.
 
-**One cost.** Something this actually costs. "No real downside" is not a cost.
+**One cost.** Callers currently get all operations from one object. This split adds
+constructor wiring and several dependencies, and either requires migrating callers to the
+new objects or maintaining a facade. Tests would also need focused fixtures for the new
+boundaries.
 
 ### Proposal B (not coded)
 
-**The problem.**
+**The problem.** Speculative over-abstraction in `notifierFactory.ts`: a global builder
+registry and plugin-style factory exist for the sole permitted channel, email.
 
-**The decomposition.**
+**The decomposition.** Retain `NotificationChannel` as the small delivery contract, but
+remove the registry, `ChannelName`, and registration functions. The application composition
+point would construct `EmailChannel` with its from address and inject it into
+`ReservationManager`. Selection belongs at that composition point; email formatting stays
+inside `EmailChannel`, and the manager only calls the channel interface.
 
-**One cost.**
+**One cost.** Constructor injection adds a dependency for callers to supply or accept as a
+default. If the system later needs channels loaded dynamically from configuration, removing
+the registry means that selection mechanism would have to be designed and added then.
 
 ### The thing that looks smelly but is fine
 
-**What it is.** File and method.
+**What it is.** The apparently long method `validateReservationRequest` in
+`src/validation.ts`.
 
-**Why it is fine.** Defend it with properties of the code, not with its line count.
+**Why it is fine.** Every branch contributes to one cohesive responsibility: validating one
+request against one room and returning the first useful rejection. It has no I/O, global
+state, or side effects; the checks are ordered, local, and independently visible in the
+validation tests. Extracting each short predicate would spread one policy across many
+helpers without hiding a separate decision.
 
-**What would flip your verdict.** Name the change that would turn this into a real problem.
+**What would flip your verdict.** If different buildings or customers acquired different
+hours, duration, capacity, or premium-room policies, the method would start accumulating
+mode checks and unrelated reasons to change. At that point, explicit validation policy
+objects or rule sets would make the variation local and turn the current method into a real
+long-method or conditional-complexity problem.
