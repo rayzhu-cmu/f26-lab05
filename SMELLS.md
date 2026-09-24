@@ -11,41 +11,68 @@ Three smells, each in a different part of the module. For each one, fill in all 
 
 ### Smell 1
 
-**The smell.** Name it, using the vocabulary from lecture.
+**The smell.** God class. `ReservationManager` has accumulated room registration,
+booking and cancellation workflow, conflict detection, pricing, notification dispatch,
+caching, and customer-facing text formatting.
 
-**Classic or agent-specific.** Which, and why that label. For agent-specific, say which of
-the lecture's three causes produced it.
+**Classic or agent-specific.** Classic. This is the lecture's God class smell: one class
+knows about and coordinates several responsibilities that change for different reasons.
 
-**Where in the code.** File and, where there is one, method.
+**Where in the code.** `src/reservationManager.ts`, across `ReservationManager`; in
+particular `createBooking`, `calculatePrice`, `dispatchNotification`, `formatReceipt`, and
+`formatDailySummary` belong to several different concerns.
 
-**The principle it violates.** Name the principle. "This is too big" is not a principle.
+**The principle it violates.** High cohesion / single responsibility. A module should hide
+one focused design decision, but this class has several unrelated reasons to change.
 
-**What it makes expensive.** A concrete future change, or something that already goes wrong
-today. What breaks first?
+**What it makes expensive.** Adding a new receipt format or changing how confirmations are
+presented requires editing the same central class that enforces conflicts, cancellation,
+and pricing. The first risk is accidentally changing booking behavior while making a
+presentation-only change, and the entire manager must be retested.
 
 ### Smell 2
 
-**The smell.**
+**The smell.** Duplication over reuse. The booking path and reporting path independently
+implement the same premium surcharge, long-booking discount, and evening discount.
 
-**Classic or agent-specific.**
+**Classic or agent-specific.** Agent-specific. The likely cause is **missing context**: the
+reporting code rebuilt the pricing rules instead of reusing the implementation already in
+the booking service. The result is two plausible implementations with no shared owner.
 
-**Where in the code.**
+**Where in the code.** `ReservationManager.calculatePrice` and `applyDiscounts` in
+`src/reservationManager.ts`, and `ReportGenerator.priceOf` in
+`src/reportGenerator.ts`. Their corresponding rate and cutoff constants are duplicated too.
 
-**The principle it violates.**
+**The principle it violates.** Information hiding and DRY / single source of truth. Pricing
+is one business decision, but its rules are exposed through two separate implementations.
 
-**What it makes expensive.**
+**What it makes expensive.** Changing a discount threshold or adding a weekend pricing rule
+requires edits in both the booking and reporting modules. If one edit is missed, newly
+created bookings and revenue reports calculate different prices; reporting is the first
+place the inconsistency becomes visible.
 
 ### Smell 3
 
-**The smell.**
+**The smell.** Speculative over-abstraction. The notification package contains a generic
+builder registry and factory even though the closed `ChannelName` type permits only one
+implementation, `email`.
 
-**Classic or agent-specific.**
+**Classic or agent-specific.** Agent-specific. The cause is an **underspecified request**:
+without a concrete requirement for multiple or runtime-registered channels, the generated
+design guessed that a plugin mechanism might be needed later.
 
-**Where in the code.**
+**Where in the code.** `src/notifications/notifierFactory.ts`, especially the global
+`builders` map plus `registerChannel`, `registeredChannels`, and
+`createNotificationChannel`.
 
-**The principle it violates.**
+**The principle it violates.** YAGNI and the lecture's warning against over-decoupling.
+Abstractions should isolate a real source of variation; this registry adds an extension
+mechanism for a variation the current system does not have.
 
-**What it makes expensive.**
+**What it makes expensive.** A reader changing the sole email implementation must first
+understand a registry, builder type, configuration object, and import-time registration.
+Adding a second fixed channel also requires coordinating the union type, registration, and
+configuration instead of making the channel dependency explicit at the composition point.
 
 ---
 
