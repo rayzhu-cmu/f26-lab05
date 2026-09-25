@@ -65,7 +65,7 @@ design guessed that a plugin mechanism might be needed later.
 `builders` map plus `registerChannel`, `registeredChannels`, and
 `createNotificationChannel`.
 
-**The principle it violates.** YAGNI and the lecture's warning against over-decoupling.
+**The principle it violates.** Phantom complexity.
 Abstractions should isolate a real source of variation; this registry adds an extension
 mechanism for a variation the current system does not have.
 
